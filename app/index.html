@@ -18,6 +18,11 @@
       <img src="icon.svg" alt="" width="28" height="28" />
       <span>StudySync</span>
     </a>
+    <nav class="topnav" aria-label="主导航">
+      <a href="#env" data-tab="env">环境</a>
+      <a href="#focus" data-tab="focus">专注</a>
+      <a href="#insights" data-tab="insights">洞察</a>
+    </nav>
     <button id="demo-badge" class="demo-badge hidden" type="button" title="退出演示模式" aria-label="退出演示模式">演示中 ✕</button>
     <a class="about-link" href="../">项目介绍</a>
     <button id="place-btn" class="place-btn" type="button" aria-haspopup="dialog">
@@ -42,7 +47,7 @@
   <main class="views">
     <!-- 环境 -->
     <section id="view-env" class="view" aria-labelledby="env-title">
-      <h1 id="env-title" class="panel-title">实时环境</h1>
+      <h1 id="env-title" class="panel-title">环境检测</h1>
 
       <div id="env-intro" class="card intro">
         <div class="intro-icon" aria-hidden="true">◎</div>
@@ -57,6 +62,7 @@
       </div>
 
       <div id="env-live" class="hidden">
+        <div class="env-col">
         <div class="card score-card">
           <div class="ring-wrap">
             <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
@@ -90,6 +96,8 @@
           </div>
         </div>
 
+        </div>
+        <div class="env-col">
         <div class="card weather">
           <div id="weather-main" class="weather-main">
             <span id="w-icon" class="w-icon" aria-hidden="true">⛅</span>
@@ -116,6 +124,7 @@
           <button id="go-focus" class="btn btn-primary" type="button">开始专注</button>
         </div>
         <p id="save-msg" class="toast-line" role="status"></p>
+        </div>
       </div>
     </section>
 

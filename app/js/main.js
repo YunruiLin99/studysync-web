@@ -8,9 +8,8 @@ import { PERIODS } from "./insights.js";
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
-// 宽屏（电脑）：三个面板同时显示；窄屏（手机）：底部标签切换
-const wide = matchMedia("(min-width: 1100px)");
-const insightsVisible = () => wide.matches || state.view === "insights";
+// 电脑用顶部导航、手机用底部标签，都是一次显示一个页面
+const insightsVisible = () => state.view === "insights";
 
 const state = {
   demo: params.get("demo") === "1",
@@ -171,7 +170,7 @@ function saveCheck() {
     score: ev.score,
     weather: state.weather ? { city: state.weather.city, temp: Math.round(state.weather.temp), text: state.weather.text } : null,
   });
-  flash(wide.matches ? `已保存：${state.store.prefs.place} · ${ev.score} 分。` : `已保存：${state.store.prefs.place} · ${ev.score} 分。可以在「洞察」里查看。`);
+  flash(`已保存：${state.store.prefs.place} · ${ev.score} 分。可以在「洞察」里查看。`);
   if (insightsVisible()) renderInsights();
 }
 let flashT;
@@ -319,7 +318,7 @@ const focus = {
     this.tick();
     renderFocusButtons();
     if (insightsVisible()) renderInsights();
-    if (!wide.matches && state.view !== "env" && state.view !== "focus") stopSensorsIfIdle();
+    if (state.view === "insights") stopSensorsIfIdle();
   },
 };
 
@@ -485,20 +484,10 @@ function stopSensorsIfIdle() {
 function route() {
   const view = (location.hash || "#env").slice(1);
   state.view = ["env", "focus", "insights"].includes(view) ? view : "env";
-  document.querySelectorAll(".tab").forEach((t) => {
+  ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("is-off", v !== state.view));
+  document.querySelectorAll("[data-tab]").forEach((t) => {
     if (t.dataset.tab === state.view) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
   });
-  if (wide.matches) {
-    ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.remove("is-off"));
-    if (state.started && !state.sensors.active) startDetection();
-    else if (state.started) renderEnv();
-    focus.tick();
-    renderFocusEnv(evaluate(state.sensors.reading()));
-    renderSession();
-    renderInsights();
-    return;
-  }
-  ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("is-off", v !== state.view));
   if (state.view === "env") {
     if (state.started && !state.sensors.active) startDetection();
     else if (state.started) renderEnv();
@@ -558,12 +547,7 @@ function init() {
     }
   };
   $("#save-check").onclick = saveCheck;
-  $("#go-focus").onclick = () => {
-    if (wide.matches) {
-      $("#view-focus").scrollIntoView({ behavior: "smooth", block: "start" });
-      $("#f-start").focus({ preventScroll: true });
-    } else location.hash = "#focus";
-  };
+  $("#go-focus").onclick = () => { location.hash = "#focus"; };
   $("#f-start").onclick = () => focus.start();
   $("#f-pause").onclick = () => focus.pause();
   $("#f-stop").onclick = () => focus.finish(false);
@@ -577,7 +561,6 @@ function init() {
     clearTimeout(rt);
     rt = setTimeout(() => { if (insightsVisible()) renderInsights(); renderSession(); }, 150);
   });
-  wide.addEventListener("change", route);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && focus.running) focus.tick(); });
 
   renderFocusButtons();
