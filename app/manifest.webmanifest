@@ -1,0 +1,10 @@
+{
+  "name": "StudySync · 学习环境检测",
+  "short_name": "StudySync",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f4fb",
+  "theme_color": "#4f46e5",
+  "lang": "zh-CN",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

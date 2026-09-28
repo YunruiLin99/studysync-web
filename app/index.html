@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>StudySync · 学习环境检测</title>
+<meta name="description" content="用摄像头和麦克风估算光线与噪音，结合当地天气给学习环境打分，并提供专注计时和历史洞察。数据只在本机处理。" />
+<meta name="theme-color" content="#4f46e5" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="stylesheet" href="app.css" />
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="../" title="返回项目介绍">
+      <img src="icon.svg" alt="" width="28" height="28" />
+      <span>StudySync</span>
+    </a>
+    <button id="demo-badge" class="demo-badge hidden" type="button" title="退出演示模式" aria-label="退出演示模式">演示中 ✕</button>
+    <button id="place-btn" class="place-btn" type="button" aria-haspopup="dialog">
+      <span aria-hidden="true">📍</span><span id="place-name">图书馆</span><span aria-hidden="true" class="caret">▾</span>
+    </button>
+  </header>
+
+  <!-- 地点选择 -->
+  <div id="place-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="place-sheet-title">
+    <div class="sheet-card">
+      <h2 id="place-sheet-title">你现在在哪里学习？</h2>
+      <p class="muted small">记录会按地点归类，用来分析哪里最适合你。</p>
+      <div id="place-chips" class="chips"></div>
+      <form id="place-form" class="inline-form">
+        <input id="place-input" type="text" maxlength="8" placeholder="其他地点，比如：实验室" aria-label="自定义地点" />
+        <button class="btn btn-soft" type="submit">添加</button>
+      </form>
+      <button id="place-close" class="btn btn-ghost full" type="button">完成</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- 环境 -->
+    <section id="view-env" class="view" aria-labelledby="env-title">
+      <h1 id="env-title" class="sr-only">环境检测</h1>
+
+      <div id="env-intro" class="card intro">
+        <div class="intro-icon" aria-hidden="true">◎</div>
+        <h2>开始学习前，先看看这里适不适合学习</h2>
+        <p class="muted">StudySync 会用<b>摄像头估算光线</b>、用<b>麦克风估算噪音</b>，再结合当地天气给出 0–100 的环境分和具体建议。</p>
+        <ul class="privacy">
+          <li>画面和声音只在你的设备上计算，不录像、不录音、不上传</li>
+          <li>只授权其中一项也能用</li>
+        </ul>
+        <button id="start-live" class="btn btn-primary full" type="button">开始检测</button>
+        <button id="start-demo" class="btn btn-ghost full" type="button">不方便授权？用演示数据体验</button>
+      </div>
+
+      <div id="env-live" class="hidden">
+        <div class="card score-card">
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="ring-track" cx="60" cy="60" r="52" />
+              <circle id="ring-fill" class="ring-fill" cx="60" cy="60" r="52" />
+            </svg>
+            <div class="ring-text">
+              <div id="score" class="score-num">--</div>
+              <div class="score-unit">环境分</div>
+            </div>
+          </div>
+          <div class="score-side">
+            <div id="status" class="status-pill"><span class="status-icon">·</span><span class="status-text">测量中…</span></div>
+            <p id="partial-note" class="muted small hidden"></p>
+            <div class="live-flag"><span class="pulse" aria-hidden="true"></span><span id="live-text">正在实时检测</span></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card metric">
+            <div class="metric-head"><span aria-hidden="true">☀️</span>光线</div>
+            <div class="metric-val"><span id="lux">--</span><small>lx</small></div>
+            <div class="meter"><div id="lux-bar" class="meter-fill"></div></div>
+            <div id="lux-level" class="metric-sub">—</div>
+          </div>
+          <div class="card metric">
+            <div class="metric-head"><span aria-hidden="true">🔊</span>噪音</div>
+            <div class="metric-val"><span id="db">--</span><small>dB</small></div>
+            <div class="meter"><div id="db-bar" class="meter-fill"></div></div>
+            <div id="db-level" class="metric-sub">—</div>
+          </div>
+        </div>
+
+        <div class="card weather">
+          <div id="weather-main" class="weather-main">
+            <span id="w-icon" class="w-icon" aria-hidden="true">⛅</span>
+            <div>
+              <div class="w-temp"><span id="w-temp">--</span>°C <span id="w-text" class="w-text"></span></div>
+              <div class="muted small"><span id="w-city">正在获取天气…</span></div>
+            </div>
+            <button id="w-change" class="link-btn" type="button">换城市</button>
+          </div>
+          <p id="w-note" class="muted small hidden"></p>
+          <form id="city-form" class="inline-form hidden">
+            <input id="city-input" type="text" placeholder="输入城市，如：上海、London" aria-label="城市" />
+            <button class="btn btn-soft" type="submit">查询</button>
+          </form>
+        </div>
+
+        <div class="card advice">
+          <h2 class="card-title">建议</h2>
+          <ol id="tips" class="tips"></ol>
+        </div>
+
+        <div class="actions">
+          <button id="save-check" class="btn btn-soft" type="button">保存这次记录</button>
+          <button id="go-focus" class="btn btn-primary" type="button">开始专注</button>
+        </div>
+        <p id="save-msg" class="toast-line" role="status"></p>
+      </div>
+    </section>
+
+    <!-- 专注 -->
+    <section id="view-focus" class="view hidden" aria-labelledby="focus-title">
+      <h1 id="focus-title" class="sr-only">专注计时</h1>
+      <div class="card focus-card">
+        <div id="presets" class="chips center" role="group" aria-label="专注时长"></div>
+        <div class="timer-wrap">
+          <svg class="ring big" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="54" />
+            <circle id="timer-fill" class="ring-fill timer" cx="60" cy="60" r="54" />
+          </svg>
+          <div class="ring-text">
+            <div id="timer" class="timer-num" aria-live="off">25:00</div>
+            <div id="timer-sub" class="score-unit">准备开始</div>
+          </div>
+        </div>
+        <div id="focus-env" class="focus-env">
+          <span id="f-score" class="mini-pill">环境 --</span>
+          <span id="f-lux" class="mini">☀️ -- lx</span>
+          <span id="f-db" class="mini">🔊 -- dB</span>
+        </div>
+        <div id="focus-alert" class="alert hidden" role="alert">
+          <b>环境变差了</b><span id="focus-alert-text"></span>
+        </div>
+        <div class="actions">
+          <button id="f-start" class="btn btn-primary" type="button">开始专注</button>
+          <button id="f-pause" class="btn btn-soft hidden" type="button">暂停</button>
+          <button id="f-stop" class="btn btn-ghost hidden" type="button">结束</button>
+        </div>
+        <div class="focus-opts">
+          <label class="switch"><input id="opt-monitor" type="checkbox" checked /><span>专注时持续监测环境</span></label>
+          <label class="switch"><input id="opt-sound" type="checkbox" checked /><span>环境变差时声音提醒</span></label>
+          <button id="demo-noise" class="link-btn hidden" type="button">模拟一次噪音（演示）</button>
+        </div>
+      </div>
+      <div id="focus-done" class="card done hidden" role="status"></div>
+      <p class="muted small center explain">环境分持续低于 60 分超过 20 秒时会提醒你。专注结束后，记录会自动保存到「洞察」。</p>
+    </section>
+
+    <!-- 洞察 -->
+    <section id="view-insights" class="view hidden" aria-labelledby="ins-title">
+      <div class="view-head">
+        <h1 id="ins-title">洞察</h1>
+        <span id="ins-demo-note" class="demo-note hidden">演示数据</span>
+      </div>
+      <div id="ins-empty" class="card empty hidden">
+        <p><b>还没有记录。</b></p>
+        <p class="muted">在「环境」页保存一次检测，或完成一次专注，这里就会开始分析你在哪里、什么时候学得最好。</p>
+      </div>
+      <div id="ins-body">
+        <div class="stats">
+          <div class="stat"><div class="stat-label">本周专注</div><div id="st-focus" class="stat-val">--</div><div id="st-focus-sub" class="stat-sub"></div></div>
+          <div class="stat"><div class="stat-label">本周平均环境分</div><div id="st-avg" class="stat-val">--</div><div id="st-avg-sub" class="stat-sub"></div></div>
+          <div class="stat"><div class="stat-label">最适合的地点</div><div id="st-place" class="stat-val">--</div><div id="st-place-sub" class="stat-sub"></div></div>
+          <div class="stat"><div class="stat-label">最适合的时段</div><div id="st-period" class="stat-val">--</div><div id="st-period-sub" class="stat-sub"></div></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">发现</h2>
+          <ul id="findings" class="findings"></ul>
+        </div>
+        <div class="card">
+          <h2 class="card-title">环境分趋势 <span class="muted small">最近 20 条</span></h2>
+          <div id="trend" class="chart-host"></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">各地点平均环境分</h2>
+          <div id="by-place" class="chart-host"></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">全部记录</h2>
+          <ul id="history" class="history"></ul>
+          <div class="danger-zone">
+            <button id="clear-all" class="link-btn danger" type="button">清空全部记录</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="主导航">
+    <a href="#env" data-tab="env" class="tab"><span aria-hidden="true">◎</span>环境</a>
+    <a href="#focus" data-tab="focus" class="tab"><span aria-hidden="true">⏱</span>专注</a>
+    <a href="#insights" data-tab="insights" class="tab"><span aria-hidden="true">▤</span>洞察</a>
+  </nav>
+</div>
+</body>
+</html>
