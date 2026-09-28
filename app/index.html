@@ -19,6 +19,7 @@
       <span>StudySync</span>
     </a>
     <button id="demo-badge" class="demo-badge hidden" type="button" title="退出演示模式" aria-label="退出演示模式">演示中 ✕</button>
+    <a class="about-link" href="../">项目介绍</a>
     <button id="place-btn" class="place-btn" type="button" aria-haspopup="dialog">
       <span aria-hidden="true">📍</span><span id="place-name">图书馆</span><span aria-hidden="true" class="caret">▾</span>
     </button>
@@ -38,10 +39,10 @@
     </div>
   </div>
 
-  <main>
+  <main class="views">
     <!-- 环境 -->
     <section id="view-env" class="view" aria-labelledby="env-title">
-      <h1 id="env-title" class="sr-only">环境检测</h1>
+      <h1 id="env-title" class="panel-title">实时环境</h1>
 
       <div id="env-intro" class="card intro">
         <div class="intro-icon" aria-hidden="true">◎</div>
@@ -119,9 +120,11 @@
     </section>
 
     <!-- 专注 -->
-    <section id="view-focus" class="view hidden" aria-labelledby="focus-title">
+    <section id="view-focus" class="view is-off" aria-labelledby="focus-title">
       <h1 id="focus-title" class="sr-only">专注计时</h1>
+      <h2 class="panel-title">专注</h2>
       <div class="card focus-card">
+        <div class="focus-main">
         <div id="presets" class="chips center" role="group" aria-label="专注时长"></div>
         <div class="timer-wrap">
           <svg class="ring big" viewBox="0 0 120 120" aria-hidden="true">
@@ -138,6 +141,13 @@
           <span id="f-lux" class="mini">☀️ -- lx</span>
           <span id="f-db" class="mini">🔊 -- dB</span>
         </div>
+        </div>
+        <div class="focus-side">
+        <div class="session">
+          <div class="session-head"><span>本次专注的环境变化</span><span class="muted small">低于 60 分持续 20 秒会提醒</span></div>
+          <div id="session-chart" class="chart-host"></div>
+          <p id="session-empty" class="muted small session-empty">开始专注后，这里会实时画出环境分的变化。</p>
+        </div>
         <div id="focus-alert" class="alert hidden" role="alert">
           <b>环境变差了</b><span id="focus-alert-text"></span>
         </div>
@@ -151,20 +161,22 @@
           <label class="switch"><input id="opt-sound" type="checkbox" checked /><span>环境变差时声音提醒</span></label>
           <button id="demo-noise" class="link-btn hidden" type="button">模拟一次噪音（演示）</button>
         </div>
+        </div>
       </div>
       <div id="focus-done" class="card done hidden" role="status"></div>
       <p class="muted small center explain">环境分持续低于 60 分超过 20 秒时会提醒你。专注结束后，记录会自动保存到「洞察」。</p>
     </section>
 
     <!-- 洞察 -->
-    <section id="view-insights" class="view hidden" aria-labelledby="ins-title">
+    <section id="view-insights" class="view is-off" aria-labelledby="ins-title">
       <div class="view-head">
         <h1 id="ins-title">洞察</h1>
         <span id="ins-demo-note" class="demo-note hidden">演示数据</span>
       </div>
       <div id="ins-empty" class="card empty hidden">
         <p><b>还没有记录。</b></p>
-        <p class="muted">在「环境」页保存一次检测，或完成一次专注，这里就会开始分析你在哪里、什么时候学得最好。</p>
+        <p class="muted">保存一次环境检测，或完成一次专注，这里就会开始分析你在哪里、什么时候学得最好。</p>
+        <p><button id="empty-demo" class="link-btn" type="button">先用演示数据看看效果 →</button></p>
       </div>
       <div id="ins-body">
         <div class="stats">
@@ -177,13 +189,19 @@
           <h2 class="card-title">发现</h2>
           <ul id="findings" class="findings"></ul>
         </div>
-        <div class="card">
+        <div class="card trend-card">
           <h2 class="card-title">环境分趋势 <span class="muted small">最近 20 条</span></h2>
           <div id="trend" class="chart-host"></div>
         </div>
-        <div class="card">
-          <h2 class="card-title">各地点平均环境分</h2>
-          <div id="by-place" class="chart-host"></div>
+        <div class="charts-2">
+          <div class="card">
+            <h2 class="card-title">各地点平均环境分</h2>
+            <div id="by-place" class="chart-host"></div>
+          </div>
+          <div class="card">
+            <h2 class="card-title">各时段平均环境分</h2>
+            <div id="by-period" class="chart-host"></div>
+          </div>
         </div>
         <div class="card">
           <h2 class="card-title">全部记录</h2>

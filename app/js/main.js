@@ -3,10 +3,14 @@ import { evaluate, advise, mainIssue, STATUS_TEXT, LIGHT_LABEL, NOISE_LABEL, sta
 import { autoWeather, searchCity, demoWeather } from "./weather.js";
 import { Store } from "./store.js";
 import { computeInsights } from "./insights.js";
-import { lineChart, barChart } from "./charts.js";
+import { lineChart, barChart, sessionChart } from "./charts.js";
+import { PERIODS } from "./insights.js";
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
+// 宽屏（电脑）：三个面板同时显示；窄屏（手机）：底部标签切换
+const wide = matchMedia("(min-width: 1100px)");
+const insightsVisible = () => wide.matches || state.view === "insights";
 
 const state = {
   demo: params.get("demo") === "1",
@@ -167,7 +171,8 @@ function saveCheck() {
     score: ev.score,
     weather: state.weather ? { city: state.weather.city, temp: Math.round(state.weather.temp), text: state.weather.text } : null,
   });
-  flash(`已保存：${state.store.prefs.place} · ${ev.score} 分。可以在「洞察」里查看。`);
+  flash(wide.matches ? `已保存：${state.store.prefs.place} · ${ev.score} 分。` : `已保存：${state.store.prefs.place} · ${ev.score} 分。可以在「洞察」里查看。`);
+  if (insightsVisible()) renderInsights();
 }
 let flashT;
 function flash(msg, warn) {
@@ -209,6 +214,7 @@ const focus = {
     this.startTs = Date.now();
     this.pausedMs = 0;
     this.samples = [];
+    renderSession();
     this.alerts = 0;
     this.badSince = 0;
     this.alerting = false;
@@ -255,7 +261,8 @@ const focus = {
     const now = Date.now();
     if (!this._lastSample || now - this._lastSample >= 1000) {
       this._lastSample = now;
-      this.samples.push({ lux: ev.light?.lux ?? null, db: ev.noise?.db ?? null, score: ev.score });
+      this.samples.push({ t: Math.round(this.elapsed() / 1000), lux: ev.light?.lux ?? null, db: ev.noise?.db ?? null, score: ev.score });
+      renderSession();
     }
     if (ev.score < 60) {
       this.badSince ||= now;
@@ -311,7 +318,8 @@ const focus = {
     this.startTs = 0;
     this.tick();
     renderFocusButtons();
-    if (state.view !== "env" && state.view !== "focus") stopSensorsIfIdle();
+    if (insightsVisible()) renderInsights();
+    if (!wide.matches && state.view !== "env" && state.view !== "focus") stopSensorsIfIdle();
   },
 };
 
@@ -372,6 +380,14 @@ function notify() {
   } catch {}
 }
 
+function renderSession() {
+  const host = $("#session-chart");
+  const has = focus.samples.length >= 2;
+  $("#session-empty").classList.toggle("hidden", has);
+  host.classList.toggle("hidden", !has);
+  if (has && host.offsetParent !== null) sessionChart(host, focus.samples, focus.planned * 60);
+}
+
 /* ---------------- insights ---------------- */
 const fmtWhen = (ts) => {
   const d = new Date(ts), now = new Date();
@@ -405,6 +421,8 @@ function renderInsights() {
 
   lineChart($("#trend"), ins.trend);
   barChart($("#by-place"), ins.byPlace);
+  const order = PERIODS.map((p) => p.key);
+  barChart($("#by-period"), [...ins.byPeriod].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key)).map((g) => ({ ...g, key: g.name })));
 
   const ul = $("#history");
   ul.innerHTML = "";
@@ -449,7 +467,7 @@ function clearAll() {
   if (!clearArmed) {
     clearArmed = true;
     btn.textContent = state.demo ? "再点一次确认重置" : "再点一次确认清空（不可恢复）";
-    setTimeout(() => { clearArmed = false; if (state.view === "insights") renderInsights(); }, 4000);
+    setTimeout(() => { clearArmed = false; if (insightsVisible()) renderInsights(); }, 4000);
     return;
   }
   clearArmed = false;
@@ -467,16 +485,27 @@ function stopSensorsIfIdle() {
 function route() {
   const view = (location.hash || "#env").slice(1);
   state.view = ["env", "focus", "insights"].includes(view) ? view : "env";
-  ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("hidden", v !== state.view));
   document.querySelectorAll(".tab").forEach((t) => {
     if (t.dataset.tab === state.view) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
   });
+  if (wide.matches) {
+    ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.remove("is-off"));
+    if (state.started && !state.sensors.active) startDetection();
+    else if (state.started) renderEnv();
+    focus.tick();
+    renderFocusEnv(evaluate(state.sensors.reading()));
+    renderSession();
+    renderInsights();
+    return;
+  }
+  ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("is-off", v !== state.view));
   if (state.view === "env") {
     if (state.started && !state.sensors.active) startDetection();
     else if (state.started) renderEnv();
   } else if (state.view === "focus") {
     focus.tick();
     renderFocusEnv(evaluate(state.sensors.reading()));
+    renderSession();
   } else {
     // 离开检测页且没有在专注：关闭摄像头和麦克风
     stopSensorsIfIdle();
@@ -491,6 +520,7 @@ function init() {
   $("#timer-fill").style.strokeDasharray = TCIRC;
   $("#start-live").onclick = () => startDetection();
   $("#start-demo").onclick = () => { setMode(true); startDetection(); };
+  $("#empty-demo").onclick = () => { setMode(true); startDetection(); route(); };
   $("#demo-badge").onclick = () => {
     focus.running && focus.finish(false);
     setMode(false);
@@ -528,7 +558,12 @@ function init() {
     }
   };
   $("#save-check").onclick = saveCheck;
-  $("#go-focus").onclick = () => { location.hash = "#focus"; };
+  $("#go-focus").onclick = () => {
+    if (wide.matches) {
+      $("#view-focus").scrollIntoView({ behavior: "smooth", block: "start" });
+      $("#f-start").focus({ preventScroll: true });
+    } else location.hash = "#focus";
+  };
   $("#f-start").onclick = () => focus.start();
   $("#f-pause").onclick = () => focus.pause();
   $("#f-stop").onclick = () => focus.finish(false);
@@ -538,7 +573,11 @@ function init() {
   $("#clear-all").onclick = clearAll;
   window.addEventListener("hashchange", route);
   let rt;
-  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.view === "insights" && renderInsights(), 150); });
+  window.addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (insightsVisible()) renderInsights(); renderSession(); }, 150);
+  });
+  wide.addEventListener("change", route);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && focus.running) focus.tick(); });
 
   renderFocusButtons();

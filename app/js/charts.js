@@ -112,3 +112,53 @@ export function barChart(host, rows) {
     hit.addEventListener("pointerleave", () => tip.hide());
   });
 }
+
+// 本次专注的环境分曲线：x = 已专注时间，y = 环境分，附 60 分提醒线
+export function sessionChart(host, samples, totalSec) {
+  host.querySelector("svg")?.remove();
+  const W = Math.max(260, host.clientWidth), H = 150;
+  const m = { t: 10, r: 12, b: 22, l: 30 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const last = samples[samples.length - 1].t;
+  const span = Math.max(60, Math.min(totalSec || last, Math.max(last, 60)));
+  const xMax = Math.max(span, last);
+  const x = (t) => m.l + (t / xMax) * iw;
+  const y = (v) => m.t + ih - (v / 100) * ih;
+  const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart", role: "img", "aria-label": "本次专注期间的环境分变化" });
+  host.prepend(svg);
+
+  [0, 50, 100].forEach((v) => {
+    el("line", { x1: m.l, x2: m.l + iw, y1: y(v), y2: y(v), class: "grid" }, svg);
+    el("text", { x: m.l - 8, y: y(v) + 4, class: "tick", "text-anchor": "end" }, svg).textContent = v;
+  });
+  el("line", { x1: m.l, x2: m.l + iw, y1: y(60), y2: y(60), class: "ref" }, svg);
+  el("text", { x: m.l + iw, y: y(60) - 5, class: "ref-label", "text-anchor": "end" }, svg).textContent = "提醒线 60";
+  el("text", { x: m.l, y: H - 4, class: "tick" }, svg).textContent = "0:00";
+  el("text", { x: m.l + iw, y: H - 4, class: "tick", "text-anchor": "end" }, svg).textContent = mmss(xMax);
+
+  // 最多画 240 个点
+  const step = Math.max(1, Math.ceil(samples.length / 240));
+  const pts = samples.filter((_, i) => i % step === 0 || i === samples.length - 1);
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.score).toFixed(1)}`).join("");
+  el("path", { d: `${d}L${x(pts[pts.length - 1].t)},${y(0)}L${x(pts[0].t)},${y(0)}Z`, class: "area" }, svg);
+  el("path", { d, class: "line" }, svg);
+  const lp = pts[pts.length - 1];
+  el("circle", { cx: x(lp.t), cy: y(lp.score), r: 4.5, class: "dot" }, svg);
+
+  const cross = el("line", { y1: m.t, y2: m.t + ih, class: "crosshair", opacity: 0 }, svg);
+  const tip = tooltip(host);
+  const hit = el("rect", { x: m.l, y: 0, width: iw, height: H, fill: "transparent" }, svg);
+  const move = (e) => {
+    const r = svg.getBoundingClientRect();
+    const t = (((e.clientX - r.left) / r.width) * W - m.l) / iw * xMax;
+    let best = pts[0];
+    for (const p of pts) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    cross.setAttribute("x1", x(best.t)); cross.setAttribute("x2", x(best.t)); cross.setAttribute("opacity", 1);
+    const extra = [best.lux != null ? `${best.lux} lx` : null, best.db != null ? `${best.db} dB` : null].filter(Boolean).join(" · ");
+    tip.show(`<b>${best.score} 分</b> · ${mmss(best.t)}${extra ? `<br><span>${extra}</span>` : ""}`, (x(best.t) / W) * r.width, (y(best.score) / H) * r.height);
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerdown", move);
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); tip.hide(); });
+}
