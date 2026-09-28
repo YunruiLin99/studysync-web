@@ -10,9 +10,9 @@
 
 [**▶ 立即试用**](https://yunruilin99.github.io/studysync-web/app/) · [用演示数据体验](https://yunruilin99.github.io/studysync-web/app/?demo=1) · [产品案例](https://yunruilin99.github.io/studysync-web/) · [English](#english)
 
-| 环境检测 | 专注计时 + 提醒 | 历史洞察 |
-| :---: | :---: | :---: |
-| <img src="docs/app-env.jpg" width="260" alt="环境检测：综合环境分、光线、噪音、天气和建议" /> | <img src="docs/app-focus.jpg" width="260" alt="专注计时：环境变差时的提醒" /> | <img src="docs/app-insights.jpg" width="260" alt="历史洞察：最佳地点、时段和发现" /> |
+| 环境检测 | 专注计时 + 提醒 | 地点档案 | 历史洞察 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/app-env.jpg" width="200" alt="环境检测：综合环境分、光线、噪音、天气和建议" /> | <img src="docs/app-focus.jpg" width="200" alt="专注计时：环境变差时的提醒" /> | <img src="docs/app-place.jpg" width="200" alt="地点档案：某家咖啡馆上午安静、下午变吵" /> | <img src="docs/app-insights.jpg" width="200" alt="历史洞察：最佳地点、时段和发现" /> |
 
 </div>
 
@@ -26,7 +26,9 @@
 - **可执行的建议**：告诉用户具体该做什么，比如"打开台灯，桌面照度最好在 300–500 lx"
 - **当地天气**：按定位获取天气，并作为建议的上下文；定位被拒绝时可以手动选城市
 - **专注计时**：25 / 50 分钟专注，期间持续监测环境；环境分连续 20 秒低于 60 分就提醒
-- **历史洞察**：按地点、时段统计环境分，找出最适合你的学习地点和时间
+- **地点档案 + 自习地图**：用定位识别附近的具体地点（比如某一家咖啡店），记住每个地方在不同时段的表现，并在地图上按环境分着色
+- **个性化评分**：专注结束后一键反馈状态（😣 / 😐 / 😊），积累 5 次以上就学习你适合的噪音水平，按你的偏好调整评分
+- **历史洞察**：按地点、时段统计环境分，找出最适合你的学习地点和时间，比如"同样是咖啡馆，A 比 B 平均高 24 分"
 - **演示模式**：不授权摄像头和麦克风，也能用模拟数据完整体验
 - **隐私友好**：画面和声音只在设备上计算，不录像、不录音、不上传；记录保存在浏览器本地
 
@@ -40,6 +42,8 @@ v1 是 2026 年 4 月的 UCL CASA0015 课程作业，用 Flutter 做的手机 Ap
 | 天气固定显示伦敦，且不参与判断 | 对其他城市的用户没有意义 | 按定位获取天气，并参与生成建议 |
 | 建议只有"好 / 中 / 差"一句话 | 用户不知道具体该做什么 | 1–3 条带目标数值的具体建议 |
 | 检测是一次性的 | 学习过程中环境会变化 | 专注计时 + 持续监测 + 提醒 |
+| 地点只有"图书馆、咖啡馆"这样的类别 | 同一类地点差别很大 | 地点档案 + 自习地图，精确到具体某一家 |
+| 所有人用同一套评分标准 | 有人需要安静，有人喜欢背景声 | 状态反馈 + 个性化评分 |
 | 只有流水记录和一条折线 | 数据记了，但没有结论 | 最佳地点 / 时段等洞察 |
 | 需要安装 App；API key 写在代码里 | 试用门槛高，有泄露风险 | 网页打开即用；改用免 key 的 Open-Meteo |
 
@@ -50,13 +54,14 @@ v1 是 2026 年 4 月的 UCL CASA0015 课程作业，用 Flutter 做的手机 Ap
 - **光线分**：300–750 lx 为理想区间（阅读和书写建议照度约 500 lx，参考 EN 12464-1），过暗或过亮都会扣分
 - **噪音分**：38 dB 以下为满分（WHO 建议教室背景噪声不超过 35 dB(A)），55 dB 以上扣分明显
 - **总分**：两项的平均分，但不超过较低一项 + 15 分（短板效应）
+- **个性化**：用"状态好"那几次专注的噪音水平平移噪音曲线（见 [`app/js/personal.js`](app/js/personal.js)）。有研究发现适度背景声有助于创造性任务（Mehta 等，2012），所以最佳噪音因人而异
 - **局限**：摄像头会自动曝光，麦克风也没有校准，所以读数是估算值，适合判断区间，不能替代专业仪器
 
 实现见 [`app/js/score.js`](app/js/score.js)。
 
 ## 技术实现
 
-原生 JavaScript（ES Modules），不依赖任何框架，也不需要构建步骤，部署在 GitHub Pages。
+原生 JavaScript（ES Modules），不需要构建步骤，部署在 GitHub Pages。地图用 Leaflet + OpenStreetMap，地点识别用 Overpass API，天气用 Open-Meteo，全部免费、无需 API key。
 
 ```
 index.html            产品案例页
@@ -64,7 +69,9 @@ app/                  StudySync 网页版
   js/sensors.js       摄像头测光（Canvas 取样）、麦克风测噪（Web Audio API）、演示模式模拟器
   js/score.js         评分模型与建议规则
   js/weather.js       定位 + Open-Meteo 天气 + 城市搜索
-  js/insights.js      历史统计与洞察生成
+  js/insights.js      历史统计、地点档案与洞察生成
+  js/places.js        附近地点识别（OpenStreetMap Overpass）
+  js/personal.js      状态反馈 → 个性化噪音评分
   js/charts.js        SVG 趋势图和条形图（带悬停提示）
   js/store.js         本地存储与演示数据
   js/main.js          界面、专注计时、提醒
@@ -99,6 +106,7 @@ flutter run --dart-define=OWM_API_KEY=你的key
 - **Try it:** [web app](https://yunruilin99.github.io/studysync-web/app/) · [demo mode](https://yunruilin99.github.io/studysync-web/app/?demo=1) (no permissions needed)
 - **v1:** a Flutter mobile app built for UCL CASA0015 (April 2026), in [`lib/`](lib/)
 - **v2:** a rebuilt web version adding noise detection, weakest-link scoring, location-based weather, a monitored focus timer and history insights
-- **Stack:** vanilla JS (ES modules), getUserMedia, Web Audio API, Canvas, Geolocation, Open-Meteo, SVG charts, GitHub Pages
+- **v2.1:** place profiles for specific spots (e.g. a particular café) found via OpenStreetMap, a personal study map, and personalised noise scoring learned from post-session feedback
+- **Stack:** vanilla JS (ES modules), getUserMedia, Web Audio API, Canvas, Geolocation, Open-Meteo, OpenStreetMap/Overpass, Leaflet, SVG charts, GitHub Pages
 
 **Author:** Yunrui Lin

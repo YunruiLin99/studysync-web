@@ -147,7 +147,7 @@ export class DemoSensors {
     this.lux = Math.round(Math.max(250, Math.min(620, this.lux + jitter(24))));
     if (this._spike > 0) {
       this._spike--;
-      this.db = Math.round(this.db + (63 - this.db) * 0.35 + jitter(2));
+      this.db = Math.round(this.db + (70 - this.db) * 0.35 + jitter(2));
     } else {
       if (Math.random() < 0.004) this._spike = 70; // 约 35 秒的嘈杂时段
       this.db = Math.round(this.db + (41 - this.db) * 0.2 + jitter(3));

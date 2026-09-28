@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#4f46e5" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="manifest" href="manifest.webmanifest" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="stylesheet" href="app.css" />
 <script type="module" src="js/main.js"></script>
 </head>
@@ -28,13 +29,41 @@
   <div id="place-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="place-sheet-title">
     <div class="sheet-card">
       <h2 id="place-sheet-title">你现在在哪里学习？</h2>
-      <p class="muted small">记录会按地点归类，用来分析哪里最适合你。</p>
+      <p class="muted small">具体到哪一家店、哪一层楼，StudySync 会帮你记住每个地方适不适合学习。</p>
+      <button id="nearby-btn" class="btn btn-soft full nearby-btn" type="button">📍 识别我附近的地点</button>
+      <div id="nearby" class="nearby hidden" aria-live="polite"></div>
+      <h3 class="sheet-sub">我的地点</h3>
       <div id="place-chips" class="chips"></div>
-      <form id="place-form" class="inline-form">
-        <input id="place-input" type="text" maxlength="8" placeholder="其他地点，比如：实验室" aria-label="自定义地点" />
-        <button class="btn btn-soft" type="submit">添加</button>
+      <form id="place-form" class="add-place">
+        <input id="place-input" type="text" maxlength="20" placeholder="手动添加，比如：UCL 主图书馆三楼" aria-label="地点名称" />
+        <div id="cat-chips" class="chips small-chips" role="group" aria-label="地点类型"></div>
+        <button class="btn btn-soft full" type="submit">添加并设为当前地点</button>
       </form>
+      <p class="muted small privacy-line">🔒 地点和位置只保存在你的浏览器里，不会上传。</p>
       <button id="place-close" class="btn btn-ghost full" type="button">完成</button>
+    </div>
+  </div>
+
+  <!-- 地点档案 -->
+  <div id="pd-sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="pd-title">
+    <div class="sheet-card pd-card">
+      <div class="pd-head">
+        <span id="pd-icon" class="pd-icon" aria-hidden="true">📍</span>
+        <div class="pd-titles">
+          <h2 id="pd-title">地点</h2>
+          <div id="pd-sub" class="muted small"></div>
+        </div>
+        <button id="pd-close" class="icon-btn" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div id="pd-body"></div>
+      <div class="pd-actions">
+        <button id="pd-rename" class="btn btn-ghost" type="button">改名</button>
+        <button id="pd-use" class="btn btn-primary" type="button">设为当前地点</button>
+      </div>
+      <form id="pd-rename-form" class="inline-form hidden">
+        <input id="pd-rename-input" type="text" maxlength="20" aria-label="新名称" />
+        <button class="btn btn-soft" type="submit">保存</button>
+      </form>
     </div>
   </div>
 
@@ -156,6 +185,25 @@
       <p class="muted small center explain">环境分持续低于 60 分超过 20 秒时会提醒你。专注结束后，记录会自动保存到「洞察」。</p>
     </section>
 
+    <!-- 地点 -->
+    <section id="view-places" class="view hidden" aria-labelledby="pl-title">
+      <div class="view-head">
+        <h1 id="pl-title">我的自习地点</h1>
+        <span class="demo-note hidden demo-only">演示数据</span>
+      </div>
+      <div class="card map-card">
+        <div id="map" class="map" role="region" aria-label="自习地图"></div>
+        <div id="map-empty" class="map-empty hidden">
+          <p><b>地图上还没有地点</b></p>
+          <p class="muted small">用「识别我附近的地点」添加的地方，会按环境分显示在地图上。</p>
+          <button id="map-add" class="btn btn-soft" type="button">📍 添加附近的地点</button>
+        </div>
+        <div class="map-legend small"><span><i class="lg good"></i>适合专注 ≥80</span><span><i class="lg fair"></i>还可以 60–79</span><span><i class="lg poor"></i>不太适合 &lt;60</span><span><i class="lg none"></i>还没记录</span></div>
+      </div>
+      <ul id="place-list" class="place-list"></ul>
+      <p class="muted small center explain">点开一个地点，查看它在不同时段的表现。在同一个地方记录越多，结论越准。</p>
+    </section>
+
     <!-- 洞察 -->
     <section id="view-insights" class="view hidden" aria-labelledby="ins-title">
       <div class="view-head">
@@ -176,6 +224,12 @@
         <div class="card">
           <h2 class="card-title">发现</h2>
           <ul id="findings" class="findings"></ul>
+        </div>
+        <div class="card pref-card">
+          <h2 class="card-title">你的环境偏好 <span class="muted small">来自专注后的状态反馈</span></h2>
+          <p id="pref-text" class="pref-text"></p>
+          <div id="pref-chart" class="chart-host"></div>
+          <label id="pref-toggle-wrap" class="switch hidden"><input id="pref-toggle" type="checkbox" checked /><span>按我的偏好调整噪音评分</span></label>
         </div>
         <div class="card">
           <h2 class="card-title">环境分趋势 <span class="muted small">最近 20 条</span></h2>
@@ -199,6 +253,7 @@
   <nav class="tabbar" aria-label="主导航">
     <a href="#env" data-tab="env" class="tab"><span aria-hidden="true">◎</span>环境</a>
     <a href="#focus" data-tab="focus" class="tab"><span aria-hidden="true">⏱</span>专注</a>
+    <a href="#places" data-tab="places" class="tab"><span aria-hidden="true">⌖</span>地点</a>
     <a href="#insights" data-tab="insights" class="tab"><span aria-hidden="true">▤</span>洞察</a>
   </nav>
 </div>

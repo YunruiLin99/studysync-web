@@ -22,8 +22,9 @@ export function lightScore(lux) {
 }
 
 // WHO 建议教室背景噪声不超过 35 dB(A)；55 dB 以上已明显干扰阅读理解。
-export function noiseScore(db) {
-  return Math.round(piecewise(db, [[30, 100], [38, 100], [45, 88], [55, 62], [65, 32], [75, 10]]));
+// shift：个性化偏移（dB）。偏好稍有背景声的用户，整条曲线向右平移。
+export function noiseScore(db, shift = 0) {
+  return Math.round(piecewise(db - shift, [[30, 100], [38, 100], [45, 88], [55, 62], [65, 32], [75, 10]]));
 }
 
 export function lightLevel(lux) {
@@ -32,9 +33,9 @@ export function lightLevel(lux) {
   return "glare";
 }
 
-export function noiseLevel(db) {
-  if (db <= 45) return "quiet";
-  if (db <= 55) return "moderate";
+export function noiseLevel(db, shift = 0) {
+  if (db - shift <= 45) return "quiet";
+  if (db - shift <= 55) return "moderate";
   return "noisy";
 }
 
@@ -42,10 +43,11 @@ export const LIGHT_LABEL = { dim: "偏暗", good: "适宜", glare: "偏强" };
 export const NOISE_LABEL = { quiet: "安静", moderate: "有些嘈杂", noisy: "嘈杂" };
 
 // lux / db 可以为 null（对应传感器未授权）
-export function evaluate({ lux, db }) {
+// opts.noiseShift：个性化噪音偏移（见 personal.js），默认 0 = 通用标准
+export function evaluate({ lux, db }, { noiseShift = 0 } = {}) {
   const parts = [];
   if (lux != null) parts.push(lightScore(lux));
-  if (db != null) parts.push(noiseScore(db));
+  if (db != null) parts.push(noiseScore(db, noiseShift));
   if (!parts.length) return null;
   // 短板效应：一项很差时，另一项再好也救不回来。总分 = 平均分，但不超过最低项 + 15。
   const mean = parts.reduce((a, b) => a + b, 0) / parts.length;
@@ -55,7 +57,7 @@ export function evaluate({ lux, db }) {
     partial: parts.length < 2,
     status: statusOf(score),
     light: lux != null ? { lux, level: lightLevel(lux), score: lightScore(lux) } : null,
-    noise: db != null ? { db, level: noiseLevel(db), score: noiseScore(db) } : null,
+    noise: db != null ? { db, level: noiseLevel(db, noiseShift), score: noiseScore(db, noiseShift) } : null,
   };
 }
 

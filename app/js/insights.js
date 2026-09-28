@@ -34,6 +34,40 @@ function groupAvg(records, keyFn) {
   }));
 }
 
+const CAT_NAME = { library: "图书馆", cafe: "咖啡馆", classroom: "教室", dorm: "宿舍", home: "家", cowork: "共享办公空间" };
+
+// 单个地点的档案
+export function placeStats(all, placeId) {
+  const rs = all.filter((r) => r.placeId === placeId);
+  const scored = rs.filter((r) => r.score != null);
+  const focus = rs.filter((r) => r.type === "focus");
+  const fb = { 1: 0, 2: 0, 3: 0 };
+  focus.forEach((r) => { if (r.feedback) fb[r.feedback]++; });
+  const byPeriod = groupAvg(scored, (r) => periodOf(r.ts).key)
+    .map((g) => ({ ...g, name: PERIODS.find((p) => p.key === g.key).name }))
+    .sort((a, b) => PERIODS.findIndex((p) => p.key === a.key) - PERIODS.findIndex((p) => p.key === b.key));
+  const okPeriods = byPeriod.filter((p) => p.n >= 2).sort((a, b) => b.score - a.score);
+  let periodNote = null;
+  if (okPeriods.length >= 2 && okPeriods[0].score - okPeriods[okPeriods.length - 1].score >= 8) {
+    const b = okPeriods[0], w = okPeriods[okPeriods.length - 1];
+    periodNote = `${b.name}来这里最好（平均 ${Math.round(b.score)} 分），${w.name}明显变差（${Math.round(w.score)} 分${w.db - b.db >= 5 ? `，平均吵 ${Math.round(w.db - b.db)} dB` : ""}）。`;
+  }
+  return {
+    n: rs.length,
+    score: avg(scored.map((r) => r.score)),
+    lux: avg(scored.filter((r) => r.lux != null).map((r) => r.lux)),
+    db: avg(scored.filter((r) => r.db != null).map((r) => r.db)),
+    focusN: focus.length,
+    focusMin: focus.reduce((a, r) => a + (r.durationMin || 0), 0),
+    completion: focus.length ? focus.filter((r) => r.completed).length / focus.length : null,
+    feedback: fb,
+    byPeriod,
+    periodNote,
+    last: rs.length ? Math.max(...rs.map((r) => r.ts)) : null,
+    recent: [...rs].sort((a, b) => b.ts - a.ts).slice(0, 3),
+  };
+}
+
 export function computeInsights(all, now = Date.now()) {
   // 没开环境监测的专注记录没有评分：计入专注时长，但不参与评分统计
   const records = all.filter((r) => r.score != null);
@@ -61,6 +95,24 @@ export function computeInsights(all, now = Date.now()) {
       findings.push(`你在<b>${best.key}</b>的环境分比<b>${worst.key}</b>平均高 ${gap} 分${why}。需要深度专注的任务，优先安排在${best.key}。`);
     }
   }
+  // 同一类地点之间的差别：具体到"哪一家"才有意义
+  const catOfPlace = new Map(records.map((r) => [r.place, r.category]));
+  const byCat = new Map();
+  placesOk.forEach((p) => {
+    const c = catOfPlace.get(p.key);
+    if (!c) return;
+    if (!byCat.has(c)) byCat.set(c, []);
+    byCat.get(c).push(p);
+  });
+  for (const list of byCat.values()) {
+    if (list.length < 2) continue;
+    const a = list[0], b = list[list.length - 1];
+    const gap = Math.round(a.score - b.score);
+    if (gap >= 8) {
+      findings.push(`同样是${CAT_NAME[catOfPlace.get(a.key)] || "这类地方"}，<b>${a.key}</b>比<b>${b.key}</b>平均高 ${gap} 分${b.db - a.db >= 5 ? `（后者平均吵 ${Math.round(b.db - a.db)} dB）` : ""}。别只看类别，具体选哪一家很重要。`);
+      break;
+    }
+  }
   if (periodsOk.length >= 2) {
     const best = periodsOk[0], worst = periodsOk[periodsOk.length - 1];
     if (best.score - worst.score >= 8) findings.push(`<b>${best.name}</b>是你环境最好的时段（平均 ${Math.round(best.score)} 分），<b>${worst.name}</b>最差（${Math.round(worst.score)} 分）。`);
@@ -85,7 +137,7 @@ export function computeInsights(all, now = Date.now()) {
     bestPeriod: periodsOk[0] || null,
     byPlace,
     byPeriod,
-    findings,
+    findings: findings.slice(0, 4),
     trend: [...records].sort((a, b) => a.ts - b.ts).slice(-20),
   };
 }

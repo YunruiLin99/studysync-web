@@ -94,7 +94,8 @@ export function barChart(host, rows) {
   rows.forEach((r, i) => {
     const cy = i * rowH + rowH / 2;
     const w = Math.max(6, (r.score / 100) * iw);
-    el("text", { x: 0, y: cy + 4, class: "bar-label" }, svg).textContent = r.key;
+    const label = r.key.length > 5 ? `${r.key.slice(0, 5)}…` : r.key;
+    el("text", { x: 0, y: cy + 4, class: "bar-label" }, svg).textContent = label;
     el("rect", { x: labelW, y: cy - 6, width: iw, height: 12, rx: 6, class: "track" }, svg);
     // 4px 圆角数据端、基线处为直角：用 path 画
     const x0 = labelW, x1 = labelW + w, h = 12, top = cy - 6, rr = Math.min(4, w / 2);
@@ -111,4 +112,32 @@ export function barChart(host, rows) {
     hit.addEventListener("pointerdown", show);
     hit.addEventListener("pointerleave", () => tip.hide());
   });
+}
+
+// 个人偏好：每次专注的平均噪音（x）按状态反馈分三行，😊 行的中间 50% 标为"你的舒适区"
+export function prefChart(host, points, range) {
+  host.querySelector("svg")?.remove();
+  const W = Math.max(260, host.clientWidth), rowH = 30;
+  const m = { t: 8, r: 10, b: 24, l: 34 };
+  const rows = [3, 2, 1], face = { 3: "😊", 2: "😐", 1: "😣" };
+  const H = m.t + rows.length * rowH + m.b;
+  const xMin = 30, xMax = 75, iw = W - m.l - m.r;
+  const x = (v) => m.l + ((Math.max(xMin, Math.min(xMax, v)) - xMin) / (xMax - xMin)) * iw;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "chart", role: "img", "aria-label": "每次专注的噪音水平与状态反馈" });
+  host.prepend(svg);
+  if (range) {
+    el("rect", { x: x(range[0]) - 4, y: m.t, width: Math.max(8, x(range[1]) - x(range[0]) + 8), height: rows.length * rowH, rx: 6, class: "band" }, svg);
+  }
+  rows.forEach((f, i) => {
+    const cy = m.t + i * rowH + rowH / 2;
+    el("line", { x1: m.l, x2: m.l + iw, y1: cy, y2: cy, class: "grid" }, svg);
+    el("text", { x: 4, y: cy + 5, class: "face" }, svg).textContent = face[f];
+    points.filter((p) => p.feedback === f).forEach((p) => {
+      el("circle", { cx: x(p.db), cy, r: 5, class: `pt f${f}` }, svg);
+    });
+  });
+  [30, 40, 50, 60, 70].forEach((v) => {
+    el("text", { x: x(v), y: H - 6, class: "tick", "text-anchor": "middle" }, svg).textContent = v;
+  });
+  el("text", { x: m.l + iw, y: H - 6, class: "tick", "text-anchor": "end" }, svg).textContent = "dB";
 }

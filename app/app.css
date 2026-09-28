@@ -227,3 +227,83 @@ a { color: var(--accent); }
 }
 
 @media (max-width: 360px) { .brand span { display: none; } }
+
+/* ---------- 地点 ---------- */
+.sheet-card { max-height: 88vh; overflow-y: auto; }
+.sheet-sub { font-size: 14px; margin: 16px 0 0; color: var(--ink-2); }
+.nearby-btn { margin-top: 12px; }
+.nearby { margin-top: 10px; }
+.nearby-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.nearby-list button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; background: var(--surface-2); border: 1px solid transparent; border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+.nearby-list button:hover { border-color: var(--accent); }
+.nb-icon { font-size: 18px; }
+.nb-main { display: flex; flex-direction: column; min-width: 0; }
+.nb-name { font-weight: 600; font-size: 14.5px; }
+.ok-line { color: var(--good-ink); }
+.warn-line { color: var(--poor-ink); }
+.add-place { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.add-place input { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.small-chips { margin: 0; gap: 6px; }
+.small-chips .chip { padding: 5px 10px; font-size: 13px; }
+.privacy-line { margin-top: 12px; }
+.icon-btn { background: none; border: 0; font-size: 18px; color: var(--muted); cursor: pointer; padding: 4px 6px; margin-left: auto; }
+
+.map-card { padding: 0; overflow: hidden; }
+.map { height: 260px; width: 100%; background: var(--surface-2); z-index: 0; }
+.map-empty { padding: 26px 20px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.map-empty .btn { margin-top: 8px; }
+.map-fail { padding: 110px 16px; text-align: center; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 14px; color: var(--muted); border-top: 1px solid var(--line); }
+.map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.lg.good { background: var(--good); } .lg.fair { background: var(--fair); } .lg.poor { background: var(--poor); } .lg.none { background: #9493ad; }
+.leaflet-tooltip.map-label { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; box-shadow: none; font-size: 12px; font-weight: 600; padding: 2px 7px; }
+.leaflet-tooltip.map-label::before { display: none; }
+.leaflet-container { font-family: inherit; }
+
+.place-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.pl-item { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; box-shadow: var(--shadow); }
+.pl-item:hover { border-color: var(--accent); }
+.pl-icon { width: 38px; height: 38px; border-radius: 11px; background: var(--surface-2); display: grid; place-items: center; font-size: 18px; flex: none; }
+.pl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-score { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 6px; }
+.pl-score i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.cur-tag { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; vertical-align: 2px; }
+
+.pd-card { padding-top: 18px; }
+.pd-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.pd-icon { width: 44px; height: 44px; border-radius: 13px; background: var(--accent-soft); display: grid; place-items: center; font-size: 22px; flex: none; }
+.pd-titles { min-width: 0; }
+.pd-titles h2 { font-size: 18px; margin: 0; }
+.pd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pd-stats div { background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; }
+.pd-stats b { font-size: 20px; line-height: 1.2; }
+.pd-stats b.fb-sum { font-size: 13.5px; line-height: 1.5; letter-spacing: .02em; }
+.pd-stats span { font-size: 12px; color: var(--muted); }
+.pd-verdict { display: flex; align-items: center; gap: 8px; font-weight: 600; margin: 12px 0 0; }
+.pd-verdict .status-icon { background: var(--muted); }
+.pd-verdict.good .status-icon { background: var(--good); } .pd-verdict.fair .status-icon { background: var(--fair); color: #3d2a00; } .pd-verdict.poor .status-icon { background: var(--poor); }
+.pd-h { font-size: 14px; margin: 18px 0 6px; color: var(--ink-2); }
+.pd-note { font-size: 14px; color: var(--ink-2); margin-bottom: 6px; }
+.pd-recent { list-style: none; font-size: 13.5px; color: var(--ink-2); }
+.pd-recent li { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--line); }
+.pd-recent li:first-child { border-top: 0; }
+.pd-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 16px; }
+.pd-empty { padding: 8px 0 4px; }
+
+/* ---------- 状态反馈与个性化 ---------- */
+.fb { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+.fb-q { font-weight: 600; margin-bottom: 10px; }
+.fb-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fb-btns button { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 4px; font-size: 14px; cursor: pointer; }
+.fb-btns button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.fb-msg { margin-top: 10px; }
+.pref-text { font-size: 14.5px; color: var(--ink-2); margin-bottom: 8px; }
+.pref-text b { color: var(--ink); }
+.pref-card .switch { margin-top: 8px; }
+.chart .band { fill: var(--good); opacity: .12; }
+.chart .face { font-size: 15px; }
+.chart .pt { stroke: var(--surface); stroke-width: 2; }
+.chart .pt.f3 { fill: var(--good); } .chart .pt.f2 { fill: #9493ad; } .chart .pt.f1 { fill: var(--poor); }
+.tabbar .tab { max-width: 120px; }

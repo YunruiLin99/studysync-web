@@ -2,8 +2,10 @@ import { LiveSensors, DemoSensors } from "./sensors.js";
 import { evaluate, advise, mainIssue, STATUS_TEXT, LIGHT_LABEL, NOISE_LABEL, statusOf } from "./score.js";
 import { autoWeather, searchCity, demoWeather } from "./weather.js";
 import { Store } from "./store.js";
-import { computeInsights } from "./insights.js";
-import { lineChart, barChart } from "./charts.js";
+import { computeInsights, placeStats } from "./insights.js";
+import { lineChart, barChart, prefChart } from "./charts.js";
+import { learnPreference } from "./personal.js";
+import { CATEGORIES, catOf, locate, nearbyPlaces, demoNearby } from "./places.js";
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -17,7 +19,17 @@ const state = {
   view: "env",
   lastEval: null,
   loop: null,
+  personal: null,     // 个性化偏好（personal.js）
+  pos: null,          // 最近一次定位
+  newCat: "library",  // 手动添加地点时选的类型
+  map: null,
+  mapLayer: null,
 };
+
+// 个性化评分是否生效
+const scoring = () => (state.personal?.ready && state.store.prefs.personalize !== false ? { noiseShift: state.personal.shift } : {});
+const personalized = () => Boolean(scoring().noiseShift != null && state.personal?.ready && state.store.prefs.personalize !== false);
+function refreshPersonal() { state.personal = learnPreference(state.store.records); }
 
 /* ---------------- mode ---------------- */
 function setMode(demo) {
@@ -29,6 +41,10 @@ function setMode(demo) {
   $("#demo-badge").classList.toggle("hidden", !demo);
   $("#demo-noise").classList.toggle("hidden", !demo);
   $("#ins-demo-note").classList.toggle("hidden", !demo);
+  document.querySelectorAll(".demo-only").forEach((e) => e.classList.toggle("hidden", !demo));
+  refreshPersonal();
+  state.pos = null;
+  $("#nearby").classList.add("hidden");
   const url = new URL(location.href);
   if (demo) url.searchParams.set("demo", "1"); else url.searchParams.delete("demo");
   history.replaceState(null, "", url);
@@ -38,22 +54,82 @@ function setMode(demo) {
 
 /* ---------------- place ---------------- */
 function renderPlace() {
-  $("#place-name").textContent = state.store.prefs.place;
+  const cur = state.store.currentPlace();
+  $("#place-name").textContent = cur.name;
   const box = $("#place-chips");
   box.innerHTML = "";
-  state.store.places().forEach((p) => {
+  state.store.placeList.forEach((p) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "chip";
-    b.textContent = p;
-    b.setAttribute("aria-pressed", String(p === state.store.prefs.place));
-    b.onclick = () => { state.store.setPref("place", p); renderPlace(); };
+    b.textContent = `${catOf(p.category).icon} ${p.name}`;
+    b.setAttribute("aria-pressed", String(p.id === cur.id));
+    b.onclick = () => { usePlace(p.id); };
     box.append(b);
   });
+  const cats = $("#cat-chips");
+  cats.innerHTML = "";
+  CATEGORIES.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = `${c.icon} ${c.name}`;
+    b.setAttribute("aria-pressed", String(c.key === state.newCat));
+    b.onclick = () => { state.newCat = c.key; renderPlace(); };
+    cats.append(b);
+  });
+}
+function usePlace(id) {
+  state.store.setPref("placeId", id);
+  renderPlace();
+  focus.tick();
+  if (state.view === "places") renderPlaces();
 }
 function openSheet(open) {
   $("#place-sheet").classList.toggle("hidden", !open);
   if (open) $("#place-chips button[aria-pressed='true']")?.focus();
+}
+
+async function findNearby() {
+  const box = $("#nearby");
+  box.classList.remove("hidden");
+  box.innerHTML = `<p class="muted small">正在定位并查找附近的地点…</p>`;
+  try {
+    if (state.demo) {
+      state.pos = { lat: 51.5240, lon: -0.1330 };
+      await new Promise((r) => setTimeout(r, 400));
+    } else {
+      state.pos = await locate();
+    }
+    const list = state.demo ? demoNearby() : await nearbyPlaces(state.pos);
+    if (!list.length) {
+      box.innerHTML = `<p class="muted small">附近 250 米内没有找到有名字的地点，可以在下面手动添加，位置会一起保存。</p>`;
+      return;
+    }
+    box.innerHTML = `<p class="muted small">选一个你现在所在的地方：</p>`;
+    const ul = document.createElement("ul");
+    ul.className = "nearby-list";
+    list.forEach((n) => {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = `<span class="nb-icon" aria-hidden="true"></span><span class="nb-main"><span class="nb-name"></span><span class="nb-sub muted small"></span></span>`;
+      b.querySelector(".nb-icon").textContent = catOf(n.category).icon;
+      b.querySelector(".nb-name").textContent = n.name;
+      b.querySelector(".nb-sub").textContent = `${catOf(n.category).name} · ${n.dist} 米`;
+      b.onclick = () => {
+        const p = state.store.addPlace(n);
+        usePlace(p.id);
+        box.innerHTML = `<p class="ok-line small">✓ 已设为当前地点：${p.name.replace(/</g, "&lt;")}</p>`;
+      };
+      li.append(b);
+      ul.append(li);
+    });
+    box.append(ul);
+  } catch (e) {
+    box.innerHTML = `<p class="warn-line small"></p>`;
+    box.firstChild.textContent = `${e.message || "查找失败"}。可以在下面手动添加地点。`;
+  }
 }
 
 /* ---------------- env view ---------------- */
@@ -108,7 +184,7 @@ function setWeather(w) {
 const CIRC = 2 * Math.PI * 52;
 function renderEnv() {
   const r = state.sensors.reading();
-  const ev = evaluate(r);
+  const ev = evaluate(r, scoring());
   state.lastEval = ev;
   const ring = $("#ring-fill");
   ring.style.strokeDasharray = CIRC;
@@ -124,10 +200,11 @@ function renderEnv() {
   pill.className = `status-pill ${ev.status}`;
   pill.querySelector(".status-icon").textContent = STATUS_TEXT[ev.status].icon;
   pill.querySelector(".status-text").textContent = STATUS_TEXT[ev.status].title;
-  $("#live-text").textContent = state.demo ? "演示数据 · 实时模拟" : "正在实时检测";
+  $("#live-text").textContent = `${state.demo ? "演示数据 · 实时模拟" : "正在实时检测"}${personalized() ? " · 个性化评分" : ""}`;
 
   metric("lux", ev.light, (l) => `${LIGHT_LABEL[l.level]} · 建议 300–750 lx`, (l) => Math.min(100, (l.lux / 1000) * 100));
-  metric("db", ev.noise, (n) => `${NOISE_LABEL[n.level]} · 建议 45 dB 以下`, (n) => Math.min(100, Math.max(0, ((n.db - 25) / 60) * 100)));
+  const pr = personalized() ? state.personal.range : null;
+  metric("db", ev.noise, (n) => `${NOISE_LABEL[n.level]} · ${pr ? `你的舒适区 ${pr[0]}–${pr[1]} dB` : "建议 45 dB 以下"}`, (n) => Math.min(100, Math.max(0, ((n.db - 25) / 60) * 100)));
 
   const tips = advise(ev, state.weather);
   const ol = $("#tips");
@@ -161,13 +238,12 @@ function saveCheck() {
   if (!ev) { flash("还没有读数，稍等一下再保存。", true); return; }
   state.store.add({
     type: "check",
-    place: state.store.prefs.place,
     lux: ev.light?.lux ?? null,
     db: ev.noise?.db ?? null,
     score: ev.score,
     weather: state.weather ? { city: state.weather.city, temp: Math.round(state.weather.temp), text: state.weather.text } : null,
   });
-  flash(`已保存：${state.store.prefs.place} · ${ev.score} 分。可以在「洞察」里查看。`);
+  flash(`已保存：${state.store.currentPlace().name} · ${ev.score} 分。可以在「地点」和「洞察」里查看。`);
 }
 let flashT;
 function flash(msg, warn) {
@@ -243,13 +319,13 @@ const focus = {
     const txt = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     $("#timer").textContent = txt;
     $("#timer-fill").style.strokeDashoffset = TCIRC * (1 - left / total);
-    $("#timer-sub").textContent = this.paused ? "已暂停" : this.running ? `专注中 · ${state.store.prefs.place}` : "准备开始";
+    $("#timer-sub").textContent = this.paused ? "已暂停" : this.running ? `专注中 · ${state.store.currentPlace().name}` : "准备开始";
     document.title = this.running ? `${txt} · 专注中 · StudySync` : "StudySync · 学习环境检测";
     if (this.running && left <= 0) this.finish(true);
   },
   sample() {
     const r = state.sensors.reading();
-    const ev = evaluate(r);
+    const ev = evaluate(r, scoring());
     renderFocusEnv(ev);
     if (!this.running || this.paused || !ev || !$("#opt-monitor").checked) return;
     const now = Date.now();
@@ -293,8 +369,8 @@ const focus = {
     if (ms < 60000) {
       done.innerHTML = `<h2>专注不到 1 分钟</h2><p class="muted">这次太短，没有保存记录。</p>`;
     } else {
-      state.store.add({
-        type: "focus", place: state.store.prefs.place,
+      const rec = state.store.add({
+        type: "focus",
         lux: avg("lux"), db: avg("db"), score,
         plannedMin: this.planned, durationMin: mins, completed, alerts: this.alerts,
         weather: state.weather ? { city: state.weather.city, temp: Math.round(state.weather.temp), text: state.weather.text } : null,
@@ -305,7 +381,28 @@ const focus = {
           <div><b>${score ?? "--"}</b><span class="muted small">平均环境分</span></div>
           <div><b>${this.alerts}</b><span class="muted small">次提醒</span></div>
         </div>
-        <p class="muted small">已保存到「洞察」。</p>`;
+        <div class="fb">
+          <p class="fb-q">这次状态怎么样？</p>
+          <div class="fb-btns" role="group" aria-label="状态反馈">
+            <button type="button" data-fb="1">😣 不太好</button>
+            <button type="button" data-fb="2">😐 一般</button>
+            <button type="button" data-fb="3">😊 很好</button>
+          </div>
+          <p class="fb-msg muted small">你的反馈会让评分越来越贴合你自己。</p>
+        </div>`;
+      done.querySelectorAll("[data-fb]").forEach((b) => {
+        b.onclick = () => {
+          const v = Number(b.dataset.fb);
+          state.store.update(rec.id, { feedback: v });
+          const wasReady = state.personal?.ready;
+          refreshPersonal();
+          done.querySelectorAll("[data-fb]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+          const p = state.personal;
+          done.querySelector(".fb-msg").textContent = p.ready
+            ? `已记录。你在 ${p.range[0]}–${p.range[1]} dB 时状态最好，${wasReady ? "个性化评分已更新" : "从现在起，噪音评分会按你的偏好调整"}。`
+            : `已记录。再反馈 ${p.need} 次，就能生成你的个性化评分。`;
+        };
+      });
     }
     done.classList.remove("hidden");
     this.startTs = 0;
@@ -372,6 +469,140 @@ function notify() {
   } catch {}
 }
 
+/* ---------------- 个性化偏好 ---------------- */
+function renderPref() {
+  const p = state.personal;
+  const t = $("#pref-text");
+  const counts = `😊 ${p.counts[3]} · 😐 ${p.counts[2]} · 😣 ${p.counts[1]}`;
+  if (!p.ready) {
+    t.innerHTML = p.n
+      ? `已收到 ${p.n} 次反馈（${counts}）。再反馈 <b>${p.need}</b> 次，StudySync 就能学会你适合多大的背景声。`
+      : `每次专注结束后点一下"这次状态怎么样"。积累 5 次以上，评分就会按<b>你自己</b>的偏好调整：有人需要绝对安静，有人在咖啡馆的背景声里反而更专注。`;
+    $("#pref-toggle-wrap").classList.add("hidden");
+  } else {
+    const more = p.shift >= 4 ? "，比通用标准能接受更多背景声" : p.shift <= -4 ? "，比通用标准更需要安静" : "";
+    t.innerHTML = `根据 ${p.n} 次反馈（${counts}），你在 <b>${p.range[0]}–${p.range[1]} dB</b> 时状态最好${more}。${state.store.prefs.personalize !== false ? "噪音评分已按你的偏好调整。" : "目前使用通用标准评分。"}`;
+    $("#pref-toggle-wrap").classList.remove("hidden");
+    $("#pref-toggle").checked = state.store.prefs.personalize !== false;
+  }
+  const host = $("#pref-chart");
+  host.classList.toggle("hidden", !p.points.length);
+  if (p.points.length) prefChart(host, p.points, p.ready ? p.range : null);
+}
+
+/* ---------------- 地点 ---------------- */
+const STATUS_HEX = { good: "#0ca30c", fair: "#fab219", poor: "#d03b3b", none: "#9493ad" };
+let leafletP;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  leafletP ||= new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    sc.onload = () => resolve(window.L);
+    sc.onerror = () => { leafletP = null; reject(new Error("地图加载失败")); };
+    document.head.append(sc);
+  });
+  return leafletP;
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function renderPlaces() {
+  const recs = state.store.records;
+  const cur = state.store.currentPlace();
+  // 没有记录也没有位置的默认地点不占列表（当前地点除外）
+  const items = state.store.placeList.map((p) => ({ p, st: placeStats(recs, p.id) }))
+    .filter(({ p, st }) => st.n > 0 || p.lat != null || p.id === cur.id)
+    .sort((a, b) => (b.st.score ?? -1) - (a.st.score ?? -1) || b.st.n - a.st.n);
+  const ul = $("#place-list");
+  ul.innerHTML = "";
+  items.forEach(({ p, st }) => {
+    const status = st.score != null ? statusOf(st.score) : null;
+    const li = document.createElement("li");
+    li.innerHTML = `<button type="button" class="pl-item">
+      <span class="pl-icon" aria-hidden="true">${catOf(p.category).icon}</span>
+      <span class="pl-main"><span class="pl-name"></span><span class="pl-sub muted small"></span></span>
+      <span class="pl-score">${status ? `<i style="background:${COLOR[status]}"></i>${Math.round(st.score)}` : `<span class="muted small">--</span>`}</span>
+    </button>`;
+    li.querySelector(".pl-name").innerHTML = `${esc(p.name)}${p.id === cur.id ? ' <span class="cur-tag">当前</span>' : ""}`;
+    li.querySelector(".pl-sub").textContent = st.n ? `${catOf(p.category).name} · 来过 ${st.n} 次${p.lat == null ? " · 未定位" : ""}` : `${catOf(p.category).name} · 还没有记录`;
+    li.querySelector("button").onclick = () => openPlace(p.id);
+    ul.append(li);
+  });
+  renderMap(items);
+}
+
+async function renderMap(items) {
+  const withPos = items.filter(({ p }) => p.lat != null);
+  $("#map").classList.toggle("hidden", !withPos.length);
+  $("#map-empty").classList.toggle("hidden", withPos.length > 0);
+  if (!withPos.length) return;
+  let L;
+  try { L = await loadLeaflet(); } catch { $("#map").innerHTML = `<p class="muted small map-fail">地图暂时加载不了，下面的列表不受影响。</p>`; return; }
+  if (!state.map) {
+    state.map = L.map("map", { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, {
+      subdomains: "abcd", maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    }).addTo(state.map);
+    state.map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+    state.mapLayer = L.layerGroup().addTo(state.map);
+  }
+  state.mapLayer.clearLayers();
+  const pts = [];
+  withPos.forEach(({ p, st }) => {
+    const status = st.score != null ? statusOf(st.score) : "none";
+    const mk = L.circleMarker([p.lat, p.lon], { radius: 10, color: "#fff", weight: 2, fillColor: STATUS_HEX[status], fillOpacity: 0.95 })
+      .bindTooltip(`${esc(p.name)}${st.score != null ? ` · ${Math.round(st.score)}` : ""}`, { permanent: true, direction: "top", offset: [0, -10], className: "map-label" })
+      .on("click", () => openPlace(p.id));
+    mk.addTo(state.mapLayer);
+    pts.push([p.lat, p.lon]);
+  });
+  state.map.invalidateSize();
+  if (pts.length === 1) state.map.setView(pts[0], 16);
+  else state.map.fitBounds(pts, { padding: [36, 36], maxZoom: 17 });
+}
+
+let pdId = null;
+function openPlace(id) {
+  pdId = id;
+  const p = state.store.place(id);
+  const st = placeStats(state.store.records, id);
+  const cat = catOf(p.category);
+  $("#pd-icon").textContent = cat.icon;
+  $("#pd-title").textContent = p.name;
+  $("#pd-sub").textContent = `${cat.name}${st.last ? ` · 上次来是 ${fmtWhen(st.last)}` : ""}`;
+  const body = $("#pd-body");
+  if (!st.n) {
+    body.innerHTML = `<p class="muted pd-empty">还没有在这里的记录。设为当前地点后，做一次检测或专注，这里就会开始积累数据。</p>`;
+  } else {
+    const status = st.score != null ? statusOf(st.score) : null;
+    const pct = st.completion != null ? `${Math.round(st.completion * 100)}%` : "--";
+    body.innerHTML = `
+      <div class="pd-stats">
+        <div><b>${st.score != null ? Math.round(st.score) : "--"}</b><span>平均环境分</span></div>
+        <div><b>${st.n}</b><span>来过的次数</span></div>
+        <div><b>${st.lux != null ? Math.round(st.lux) : "--"}</b><span>平均光线 lx</span></div>
+        <div><b>${st.db != null ? Math.round(st.db) : "--"}</b><span>平均噪音 dB</span></div>
+        <div><b>${pct}</b><span>专注完成率</span></div>
+        <div><b class="fb-sum">😊${st.feedback[3]} 😐${st.feedback[2]} 😣${st.feedback[1]}</b><span>状态反馈</span></div>
+      </div>
+      ${status ? `<p class="pd-verdict ${status}"><span class="status-icon">${STATUS_TEXT[status].icon}</span>${STATUS_TEXT[status].title}</p>` : ""}
+      <h3 class="pd-h">不同时段</h3>
+      ${st.n >= 3 ? `<p class="pd-note">${st.periodNote || "目前各时段差别不大。"}</p><div id="pd-period" class="chart-host"></div>`
+        : `<p class="muted small">再来这里 <b>${3 - st.n}</b> 次，就能看到这里在不同时段的规律。</p>`}
+      <h3 class="pd-h">最近的记录</h3>
+      <ul class="pd-recent">${st.recent.map((r) => `<li><span>${fmtWhen(r.ts)} · ${r.type === "focus" ? `专注 ${r.durationMin} 分钟` : "环境检测"}${r.feedback ? ` · ${["", "😣", "😐", "😊"][r.feedback]}` : ""}</span><b>${r.score ?? "--"}</b></li>`).join("")}</ul>`;
+  }
+  $("#pd-use").textContent = state.store.prefs.placeId === id ? "已是当前地点" : "设为当前地点";
+  $("#pd-use").disabled = state.store.prefs.placeId === id;
+  $("#pd-rename-form").classList.add("hidden");
+  $("#pd-sheet").classList.remove("hidden");
+  if (st.n >= 3) barChart($("#pd-period"), st.byPeriod.map((g) => ({ ...g, key: g.name })));
+  $("#pd-close").focus();
+}
+function closePlace() { $("#pd-sheet").classList.add("hidden"); pdId = null; }
+
 /* ---------------- insights ---------------- */
 const fmtWhen = (ts) => {
   const d = new Date(ts), now = new Date();
@@ -405,6 +636,7 @@ function renderInsights() {
 
   lineChart($("#trend"), ins.trend);
   barChart($("#by-place"), ins.byPlace);
+  renderPref();
 
   const ul = $("#history");
   ul.innerHTML = "";
@@ -418,6 +650,7 @@ function renderInsights() {
       r.lux != null ? `${r.lux} lx` : null,
       r.db != null ? `${r.db} dB` : null,
       r.weather ? `${r.weather.text} ${r.weather.temp}°C` : null,
+      r.feedback ? ["", "😣", "😐", "😊"][r.feedback] : null,
     ].filter(Boolean).join(" · ");
     li.innerHTML = `
       <span class="h-icon" aria-hidden="true">${r.type === "focus" ? "⏱" : "◎"}</span>
@@ -426,7 +659,7 @@ function renderInsights() {
       <button class="h-del" type="button" aria-label="删除这条记录">×</button>`;
     li.querySelector(".h-title").textContent = `${r.place} · ${fmtWhen(r.ts)}`;
     li.querySelector(".h-sub").textContent = detail;
-    li.querySelector(".h-del").onclick = () => { state.store.remove(r.id); renderInsights(); };
+    li.querySelector(".h-del").onclick = () => { state.store.remove(r.id); refreshPersonal(); renderInsights(); };
     ul.append(li);
   });
   if (sorted.length > 6) {
@@ -454,6 +687,8 @@ function clearAll() {
   }
   clearArmed = false;
   state.store.clear();
+  refreshPersonal();
+  renderPlace();
   renderInsights();
 }
 
@@ -466,8 +701,8 @@ function stopSensorsIfIdle() {
 }
 function route() {
   const view = (location.hash || "#env").slice(1);
-  state.view = ["env", "focus", "insights"].includes(view) ? view : "env";
-  ["env", "focus", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("hidden", v !== state.view));
+  state.view = ["env", "focus", "places", "insights"].includes(view) ? view : "env";
+  ["env", "focus", "places", "insights"].forEach((v) => $(`#view-${v}`).classList.toggle("hidden", v !== state.view));
   document.querySelectorAll(".tab").forEach((t) => {
     if (t.dataset.tab === state.view) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
   });
@@ -476,11 +711,11 @@ function route() {
     else if (state.started) renderEnv();
   } else if (state.view === "focus") {
     focus.tick();
-    renderFocusEnv(evaluate(state.sensors.reading()));
+    renderFocusEnv(evaluate(state.sensors.reading(), scoring()));
   } else {
     // 离开检测页且没有在专注：关闭摄像头和麦克风
     stopSensorsIfIdle();
-    renderInsights();
+    if (state.view === "places") renderPlaces(); else renderInsights();
   }
   window.scrollTo(0, 0);
 }
@@ -503,17 +738,36 @@ function init() {
   $("#place-btn").onclick = () => openSheet(true);
   $("#place-close").onclick = () => openSheet(false);
   $("#place-sheet").onclick = (e) => { if (e.target.id === "place-sheet") openSheet(false); };
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") openSheet(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { openSheet(false); closePlace(); } });
   $("#place-form").onsubmit = (e) => {
     e.preventDefault();
     const v = $("#place-input").value.trim();
     if (!v) return;
-    const custom = state.store.prefs.customPlaces;
-    if (!custom.includes(v)) state.store.setPref("customPlaces", [...custom, v]);
-    state.store.setPref("place", v);
+    const p = state.store.addPlace({ name: v, category: state.newCat, lat: state.pos?.lat ?? null, lon: state.pos?.lon ?? null });
     $("#place-input").value = "";
-    renderPlace();
+    usePlace(p.id);
   };
+  $("#nearby-btn").onclick = findNearby;
+  $("#map-add").onclick = () => { openSheet(true); findNearby(); };
+  $("#pd-close").onclick = closePlace;
+  $("#pd-sheet").onclick = (e) => { if (e.target.id === "pd-sheet") closePlace(); };
+  $("#pd-use").onclick = () => { if (pdId) { usePlace(pdId); openPlace(pdId); } };
+  $("#pd-rename").onclick = () => {
+    const f = $("#pd-rename-form");
+    f.classList.toggle("hidden");
+    $("#pd-rename-input").value = state.store.place(pdId)?.name || "";
+    $("#pd-rename-input").focus();
+  };
+  $("#pd-rename-form").onsubmit = (e) => {
+    e.preventDefault();
+    const v = $("#pd-rename-input").value.trim();
+    if (!v || !pdId) return;
+    state.store.renamePlace(pdId, v);
+    renderPlace();
+    renderPlaces();
+    openPlace(pdId);
+  };
+  $("#pref-toggle").onchange = (e) => { state.store.setPref("personalize", e.target.checked); renderPref(); };
   $("#w-change").onclick = () => { $("#city-form").classList.toggle("hidden"); $("#city-input").focus(); };
   $("#city-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -538,7 +792,10 @@ function init() {
   $("#clear-all").onclick = clearAll;
   window.addEventListener("hashchange", route);
   let rt;
-  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => state.view === "insights" && renderInsights(), 150); });
+  window.addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { if (state.view === "insights") renderInsights(); if (state.view === "places") state.map?.invalidateSize(); }, 150);
+  });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && focus.running) focus.tick(); });
 
   renderFocusButtons();

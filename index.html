@@ -28,6 +28,7 @@
       <a href="#v2">迭代</a>
       <a href="#priority">取舍</a>
       <a href="#model">评分模型</a>
+      <a href="#diff">差异化</a>
       <a href="#roadmap">路线图</a>
     </nav>
     <a class="btn btn-primary btn-sm" href="app/">立即试用</a>
@@ -40,7 +41,7 @@
     <div class="hero-text">
       <p class="eyebrow">产品案例 · 个人项目</p>
       <h1>开始学习前，<br />先看看这里<br /><span class="grad">适不适合学习</span>。</h1>
-      <p class="lede">StudySync 用手机的摄像头和麦克风估算<b>光线</b>与<b>噪音</b>，结合当地<b>天气</b>给学习环境打一个 0–100 的分数；专注时持续监测，环境变差就提醒；记录越多，越能告诉你<b>在哪里、什么时候</b>学得最好。</p>
+      <p class="lede">StudySync 用手机的摄像头和麦克风估算<b>光线</b>与<b>噪音</b>，结合当地<b>天气</b>给学习环境打一个 0–100 的分数；专注时持续监测，环境变差就提醒；记录越多，越能告诉你<b>哪一家店、哪个时段</b>最适合你，评分也会按你自己的偏好越来越准。</p>
       <div class="cta">
         <a class="btn btn-primary" href="app/">立即试用</a>
         <a class="btn btn-soft" href="app/?demo=1">用演示数据体验</a>
@@ -104,6 +105,8 @@
           <tr><td>天气固定显示伦敦，且不参与判断</td><td>对其他城市的用户没有意义</td><td><b>按定位获取当地天气</b>，并作为建议的上下文（如"外面阴天，窗边光线也不够"）</td></tr>
           <tr><td>建议只有"好 / 中 / 差"一句话</td><td>用户不知道具体该做什么</td><td>给出 <b>1–3 条可执行建议</b>，带目标数值（如"桌面照度最好在 300–500 lx"）</td></tr>
           <tr><td>检测是一次性的</td><td>学习过程中环境会变化</td><td><b>专注计时 + 持续监测</b>：环境持续变差超过 20 秒就提醒</td></tr>
+          <tr><td>地点只有"图书馆、咖啡馆"这样的类别</td><td>同一类地点差别很大，两家咖啡馆可能差 20 多分</td><td><b>地点档案 + 自习地图</b>：自动识别附近的具体地点，记住每一家店在不同时段的表现</td></tr>
+          <tr><td>所有人用同一套评分标准</td><td>有人需要绝对安静，有人在轻微的背景声里反而更专注</td><td><b>状态反馈 + 个性化评分</b>：专注后一键反馈，积累 5 次以上就按你的偏好调整噪音评分</td></tr>
           <tr><td>历史只有流水记录和一条折线</td><td>数据记了，但没有给出结论</td><td><b>历史洞察</b>：最适合的地点和时段、不同环境下的专注完成率</td></tr>
           <tr><td>需要安装 App；天气 API key 写在代码里</td><td>试用门槛高，还有密钥泄露风险</td><td><b>网页版打开即用</b>；改用免 key 的 Open-Meteo 天气服务</td></tr>
         </tbody>
@@ -118,8 +121,8 @@
     <p class="section-lede">按"对用户的价值"和"实现成本"排序：高价值、低成本的先做；有价值但会分散焦点、或需要先验证的，明确地放到后面。</p>
     <div class="matrix">
       <div class="q q1"><h3>P0 · 先做</h3><p class="q-sub">价值高，成本低</p><ul><li>噪音检测 + 综合环境分</li><li>按定位获取天气</li><li>可执行的具体建议</li><li>演示模式（降低试用门槛）</li></ul></div>
-      <div class="q q2"><h3>P1 · 接着做</h3><p class="q-sub">价值高，成本较高</p><ul><li>专注计时 + 环境变差提醒</li><li>历史洞察：最佳地点 / 时段</li></ul></div>
-      <div class="q q3"><h3>之后再做</h3><p class="q-sub">需要先积累数据</p><ul><li>AI 学习助手（见路线图）</li><li>校园"安静地图"</li></ul></div>
+      <div class="q q2"><h3>P1 · 接着做</h3><p class="q-sub">价值高，成本较高</p><ul><li>专注计时 + 环境变差提醒</li><li>历史洞察：最佳地点 / 时段</li><li>地点档案 + 自习地图</li><li>状态反馈 + 个性化评分</li></ul></div>
+      <div class="q q3"><h3>之后再做</h3><p class="q-sub">需要先积累数据</p><ul><li>AI 学习助手（见路线图）</li><li>校园"安静地图"：汇总大家的地点档案</li></ul></div>
       <div class="q q4"><h3>明确不做</h3><p class="q-sub">以及原因</p><ul>
         <li><b>把室外温度算进分数</b>：室外温度不等于室内温度，算进去反而会误导用户</li>
         <li><b>账号和云同步</b>：环境数据比较敏感，验证阶段存在本地就够了</li>
@@ -146,36 +149,60 @@
     <div class="rules">
       <div class="rule"><h3>短板效应</h3><p>总分取两项的平均，但<b>不超过较低一项 + 15 分</b>。环境很吵时，光线再好也不应该显示"适合专注"。</p></div>
       <div class="rule"><h3>避免误报</h3><p>专注时，环境分<b>连续 20 秒</b>低于 60 分才提醒，回升到 70 分以上才解除，不会因为一声咳嗽就打断用户。</p></div>
+      <div class="rule"><h3>因人而异</h3><p>专注后反馈状态，积累 5 次以上后，用"状态好"那几次的噪音水平<b>平移噪音曲线</b>。有研究发现适度背景声有助于创造性任务（Mehta 等，2012），所以"最佳噪音"不该一刀切。</p></div>
       <div class="rule"><h3>坦诚说明局限</h3><p>摄像头会自动曝光，麦克风也没有校准，所以读数是<b>估算值</b>，适合判断"偏暗 / 适宜 / 偏强"这样的区间，不能替代专业测量仪器。</p></div>
     </div>
   </section>
 
-  <!-- 05 Metrics -->
+  <!-- 05 Differentiation -->
+  <section id="diff" class="section wrap">
+    <p class="sec-label"><span>05</span>竞品与差异化</p>
+    <h2>别的产品管时间，StudySync 管环境</h2>
+    <div class="table-wrap">
+      <table class="compare">
+        <thead><tr><th>类型</th><th>代表产品</th><th>解决什么</th><th>缺什么</th></tr></thead>
+        <tbody>
+          <tr><td>专注计时</td><td>Forest、番茄 ToDo</td><td>管住时间和行为：计时、锁手机、游戏化激励</td><td>不关心你在什么环境里学</td></tr>
+          <tr><td>白噪音</td><td>潮汐、Noisli</td><td>掩盖噪音</td><td>不判断环境本身好不好，也不建议换地方</td></tr>
+          <tr><td>测量工具</td><td>分贝仪、照度计类 App</td><td>给出原始数字</td><td>只有数字，没有"对学习意味着什么、该怎么做"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cards-3 diff-cards">
+      <article class="card"><div class="card-ix">差异 1</div><h3>把数字变成行动</h3><p>不是"噪音 62 dB"，而是"环境嘈杂，戴上耳机或换到更安静的地方"，并在专注中持续提醒。</p></article>
+      <article class="card"><div class="card-ix">差异 2</div><h3>记住每一个具体地点</h3><p>精确到"学校门口那家咖啡馆"，而且能看出它"上午安静、下午变吵"。用得越久，地点档案越有价值，这是数据积累带来的壁垒。</p></article>
+      <article class="card"><div class="card-ix">差异 3</div><h3>越用越懂你</h3><p>通过专注后的状态反馈，学习"你"适合多大的背景声，而不是给所有人套用同一个标准。</p></article>
+    </div>
+    <p class="section-lede diff-note">我也清楚它作为独立产品的门槛不高。更现实的路径是作为<b>专注类产品的一个功能模块</b>，比如在开始计时前加一步"环境检测"；如果独立发展，壁垒来自个人地点档案和汇总后的校园"安静地图"。</p>
+  </section>
+
+  <!-- 06 Metrics -->
   <section id="metrics" class="section wrap">
-    <p class="sec-label"><span>05</span>成功指标</p>
+    <p class="sec-label"><span>06</span>成功指标</p>
     <h2>如果正式上线，我会这样衡量</h2>
     <div class="metrics">
       <div class="metric north"><span class="tag">北极星指标</span><h3>每周高质量专注时长</h3><p>环境分 ≥ 80 时完成的专注分钟数。它同时反映了"用户在专注"和"环境是好的"两件事。</p></div>
       <div class="metric"><h3>检测 → 开始专注的转化率</h3><p>看到环境分之后，用户是否真的开始学习。</p></div>
       <div class="metric"><h3>提醒后的环境回升率</h3><p>收到提醒后 2 分钟内环境分回升的比例，用来验证假设 1：建议能否促使用户行动。</p></div>
+      <div class="metric"><h3>个性化评分的准确度</h3><p>环境分与用户主观反馈的一致程度，开启个性化前后对比，用来验证"越用越懂你"是否成立。</p></div>
       <div class="metric"><h3>专注完成率</h3><p>分环境档位对比，用来验证假设 2：好的环境是否带来更高的完成率。</p></div>
     </div>
   </section>
 
   <!-- 06 Roadmap -->
   <section id="roadmap" class="section wrap">
-    <p class="sec-label"><span>06</span>路线图</p>
+    <p class="sec-label"><span>07</span>路线图</p>
     <h2>下一步</h2>
     <div class="road">
-      <div class="road-col"><h3>近期</h3><ul><li>麦克风校准向导：在已知安静的环境里校准偏移，提高 dB 估算精度</li><li>专注结束后做一个轻量问卷（"这次专注感觉如何？"），收集主观反馈，用来校准评分</li></ul></div>
-      <div class="road-col"><h3>中期</h3><ul><li><b>AI 学习助手</b>：基于历史记录，用大模型生成每周复盘和个性化建议，比如"你周二晚上在宿舍的完成率最低，试试改去图书馆"。模型通过服务端调用，API key 不暴露在前端。</li><li>校园"安静地图"：匿名汇总各自习点的实时环境分，帮你出发前就选好地方</li></ul></div>
+      <div class="road-col"><h3>近期</h3><ul><li>麦克风校准向导：在已知安静的环境里校准偏移，提高 dB 估算精度</li><li>把光线也纳入个性化：有人喜欢暖光，有人需要更亮的冷光</li></ul></div>
+      <div class="road-col"><h3>中期</h3><ul><li><b>AI 学习助手</b>：基于历史记录，用大模型生成每周复盘和个性化建议，比如"你周二晚上在宿舍的完成率最低，试试改去图书馆"。模型通过服务端调用，API key 不暴露在前端。</li><li>校园"安静地图"：在个人地点档案的基础上，匿名汇总大家在各自习点的环境分，出发前就能选好地方</li></ul></div>
       <div class="road-col"><h3>长期</h3><ul><li>和原生 App 同步数据，用上手机的真实光线传感器</li><li>接入日历，把高难度任务自动安排到你环境最好的时段</li></ul></div>
     </div>
   </section>
 
   <!-- 07 v1 -->
   <section id="v1" class="section wrap">
-    <p class="sec-label"><span>07</span>v1 原型</p>
+    <p class="sec-label"><span>08</span>v1 原型</p>
     <h2>课程作业版：Flutter 手机 App</h2>
     <p class="section-lede">2026 年 4 月完成：用摄像头画面估算亮度、显示伦敦的实时天气、记录历史并绘制趋势图。v2 的光线估算沿用了同一套映射算法。代码在仓库的 <a href="https://github.com/YunruiLin99/studysync-web/tree/main/lib"><code>lib/</code></a> 目录里。</p>
     <div class="v1">
@@ -188,7 +215,7 @@
 
   <!-- 08 Role -->
   <section id="role" class="section wrap">
-    <p class="sec-label"><span>08</span>我的角色</p>
+    <p class="sec-label"><span>09</span>我的角色</p>
     <h2>从问题定义到上线，独立完成</h2>
     <div class="role">
       <ul class="role-list">
@@ -197,7 +224,7 @@
         <li><b>开发</b>：借助 AI 辅助编码完成前端实现，由我把控方案并审校代码</li>
       </ul>
       <div class="stack">
-        <span>JavaScript (ES Modules)</span><span>getUserMedia</span><span>Web Audio API</span><span>Canvas</span><span>Geolocation</span><span>Open-Meteo</span><span>SVG 图表</span><span>Screen Wake Lock</span><span>Flutter（v1）</span>
+        <span>JavaScript (ES Modules)</span><span>getUserMedia</span><span>Web Audio API</span><span>Canvas</span><span>Geolocation</span><span>Open-Meteo</span><span>SVG 图表</span><span>Screen Wake Lock</span><span>OpenStreetMap / Overpass</span><span>Leaflet 地图</span><span>Flutter（v1）</span>
       </div>
     </div>
   </section>
