@@ -67,7 +67,7 @@ export class LiveSensors {
     let sum = 0;
     for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
     const brightness = sum / (d.length / 4) / 255;
-    // 与 Flutter 版保持同一映射：lux ≈ brightness² × 1500
+    // 经验映射：lux ≈ brightness² × 1500
     const lux = Math.min(2000, Math.round(brightness * brightness * 1500));
     this.lux = Math.round(smooth(this.lux, lux));
   }

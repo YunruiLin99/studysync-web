@@ -32,22 +32,13 @@
 - **演示模式**：不授权摄像头和麦克风，也能用模拟数据完整体验
 - **隐私友好**：画面和声音只在设备上计算，不录像、不录音、不上传；记录保存在浏览器本地
 
-## 从 v1 到 v2
+## 需求取舍
 
-v1 是 2026 年 4 月的 UCL CASA0015 课程作业，用 Flutter 做的手机 App（代码在 [`lib/`](lib/)，最初提交在课程仓库 [casa0015-mobile-assessment](https://github.com/YunruiLin99/casa0015-mobile-assessment)）。复盘后，我在网页版 v2 里重新定义了需求：
+- **P0**：噪音检测 + 综合环境分、按定位获取天气、可执行的具体建议、演示模式
+- **P1**：专注计时 + 环境变差提醒、历史洞察、地点档案 + 自习地图、状态反馈 + 个性化评分
+- **明确不做**：把室外温度算进分数（室外不等于室内，会误导用户）、账号和云同步（环境数据敏感）、排行榜（和"专注"目标冲突）
 
-| v1 的做法 | 问题 | v2 的改动 |
-| --- | --- | --- |
-| 只用亮度判断环境 | 学习环境不止光线 | 加入噪音检测，综合评分 |
-| 天气固定显示伦敦，且不参与判断 | 对其他城市的用户没有意义 | 按定位获取天气，并参与生成建议 |
-| 建议只有"好 / 中 / 差"一句话 | 用户不知道具体该做什么 | 1–3 条带目标数值的具体建议 |
-| 检测是一次性的 | 学习过程中环境会变化 | 专注计时 + 持续监测 + 提醒 |
-| 地点只有"图书馆、咖啡馆"这样的类别 | 同一类地点差别很大 | 地点档案 + 自习地图，精确到具体某一家 |
-| 所有人用同一套评分标准 | 有人需要安静，有人喜欢背景声 | 状态反馈 + 个性化评分 |
-| 只有流水记录和一条折线 | 数据记了，但没有结论 | 最佳地点 / 时段等洞察 |
-| 需要安装 App；API key 写在代码里 | 试用门槛高，有泄露风险 | 网页打开即用；改用免 key 的 Open-Meteo |
-
-需求优先级、评分模型、成功指标和路线图，详见 [产品案例页](https://yunruilin99.github.io/studysync-web/)。
+评分模型、成功指标和路线图，详见 [产品案例页](https://yunruilin99.github.io/studysync-web/)。
 
 ## 评分模型
 
@@ -75,8 +66,7 @@ app/                  StudySync 网页版
   js/charts.js        SVG 趋势图和条形图（带悬停提示）
   js/store.js         本地存储与演示数据
   js/main.js          界面、专注计时、提醒
-lib/                  v1 Flutter App 源码
-docs/                 截图与 v1 演示视频
+docs/                 截图
 ```
 
 本地运行（摄像头和麦克风需要 `localhost` 或 HTTPS 环境）：
@@ -86,16 +76,9 @@ python3 -m http.server 8000
 # 打开 http://localhost:8000/app/
 ```
 
-运行 v1 Flutter App（需要自己的 [OpenWeatherMap](https://openweathermap.org/api) API key）：
-
-```bash
-flutter pub get
-flutter run --dart-define=OWM_API_KEY=你的key
-```
-
 ## 我的角色
 
-独立完成：复盘 v1 并重新定义需求、排定优先级、设计评分模型和成功指标、交互与界面设计；开发中借助 AI 辅助编码，由我把控方案并审校代码。
+独立完成：定义用户和需求、排定优先级、设计评分模型和成功指标、交互与界面设计；开发中借助 AI 辅助编码，由我把控方案并审校代码。
 
 ---
 
@@ -104,9 +87,7 @@ flutter run --dart-define=OWM_API_KEY=你的key
 **StudySync** helps students check whether their current spot is good for studying. It uses the camera to estimate light and the microphone to estimate noise, then combines them with local weather into a 0–100 environment score with concrete tips. A focus timer keeps monitoring the environment and alerts you when it degrades, and history insights show where and when you study best. Everything runs in the browser, and no video or audio leaves the device.
 
 - **Try it:** [web app](https://yunruilin99.github.io/studysync-web/app/) · [demo mode](https://yunruilin99.github.io/studysync-web/app/?demo=1) (no permissions needed)
-- **v1:** a Flutter mobile app built for UCL CASA0015 (April 2026), in [`lib/`](lib/)
-- **v2:** a rebuilt web version adding noise detection, weakest-link scoring, location-based weather, a monitored focus timer and history insights
-- **v2.1:** place profiles for specific spots (e.g. a particular café) found via OpenStreetMap, a personal study map, and personalised noise scoring learned from post-session feedback
+- **Features:** light + noise scoring with a weakest-link rule, actionable tips, location-based weather, a monitored focus timer, place profiles for specific spots (e.g. a particular café) with a personal study map, personalised noise scoring learned from post-session feedback, and history insights
 - **Stack:** vanilla JS (ES modules), getUserMedia, Web Audio API, Canvas, Geolocation, Open-Meteo, OpenStreetMap/Overpass, Leaflet, SVG charts, GitHub Pages
 
 **Author:** Yunrui Lin

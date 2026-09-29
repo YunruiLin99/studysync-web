@@ -134,11 +134,6 @@ h3 { font-size: 17px; line-height: 1.4; }
 .road-col:nth-child(2) { border-color: var(--accent); }
 .road-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; color: var(--ink-2); font-size: 15px; }
 
-/* v1 */
-.v1 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (min-width: 760px) { .v1 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.v1 video, .v1 img { width: 100%; aspect-ratio: 440 / 956; object-fit: cover; border-radius: 18px; border: 1px solid var(--line); background: #000; }
-
 /* role */
 .role { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 @media (min-width: 860px) { .role { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; } }
